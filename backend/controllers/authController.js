@@ -35,35 +35,12 @@ const registerUser = async (req, res, next) => {
       name,
       email,
       password,
-      isVerified: process.env.NODE_ENV === 'development', // Auto-verify in development
+      isVerified: true, // Automatically verify
     });
 
     if (user) {
-      // Generate a verification token
-      const verificationToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-      
-      // Create verification URL
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      const verificationUrl = `${frontendUrl}/verify-email/${verificationToken}`;
-      
-      const message = `Welcome to Task Manager! Please verify your email address by clicking the link below: \n\n ${verificationUrl}`;
-      
-      try {
-        const sendEmail = require('../utils/sendEmail');
-        await sendEmail({
-          email: user.email,
-          subject: 'Verify Your Email Address',
-          message,
-          html: `<p>Welcome to Task Manager! Please verify your email address by clicking the link below:</p>
-                 <a href="${verificationUrl}" target="_blank">Verify Email</a>`,
-        });
-      } catch (err) {
-        console.error('Failed to send verification email:', err);
-        // We still return 201 because the user was created, even if email failed
-      }
-
       res.status(201).json({
-        message: 'Registration successful! Please check your email to verify your account.',
+        message: 'Registration successful! You can now log in.',
       });
     } else {
       res.status(400);
@@ -97,10 +74,10 @@ const loginUser = async (req, res, next) => {
     }
 
     // Check if user is verified
-    if (!user.isVerified) {
-      res.status(401);
-      throw new Error('Please verify your email before logging in');
-    }
+    // if (!user.isVerified) {
+    //   res.status(401);
+    //   throw new Error('Please verify your email before logging in');
+    // }
 
     // Verify password
     if (await bcrypt.compare(password, user.password)) {

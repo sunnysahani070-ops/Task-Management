@@ -2,16 +2,20 @@ import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { AuthContext } from '../context/AuthContext';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import { useToast } from '../context/ToastContext';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login: contextLogin } = useContext(AuthContext);
+  const { showToast } = useToast();
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { email, password } = formData;
@@ -25,11 +29,10 @@ const Login = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError('');
 
     // Basic frontend validation
     if (!email || !password) {
-      setError('Please fill in all fields');
+      showToast('Please fill in all fields', 'error');
       return;
     }
 
@@ -45,80 +48,71 @@ const Login = () => {
       
       setLoading(false);
       // Redirect to Dashboard on success
+      showToast('Login successful! Welcome back.', 'success');
       navigate('/dashboard');
     } catch (err) {
       setLoading(false);
       const message =
         err.response?.data?.message || err.message || 'Login failed';
-      setError(message);
+      showToast(message, 'error');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-        <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 dark:bg-slate-900 transition-colors duration-300">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center pb-2">
+          <CardTitle className="text-2xl font-bold dark:text-white">Sign in to your account</CardTitle>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             Welcome back! Please enter your details.
           </p>
-        </div>
+        </CardHeader>
         
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-md">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={onSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email Address</label>
-              <input
+        <CardContent>
+          <form className="space-y-5" onSubmit={onSubmit}>
+            <div className="space-y-4">
+              <Input
+                label="Email Address"
                 id="email"
                 name="email"
                 type="email"
                 required
                 value={email}
                 onChange={onChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="you@example.com"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
-              <input
+              <Input
+                label="Password"
                 id="password"
                 name="password"
                 type="password"
                 required
                 value={password}
                 onChange={onChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="••••••••"
               />
             </div>
-          </div>
 
-          <div>
-            <button
+            <Button
               type="submit"
+              fullWidth
               disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={loading ? 'opacity-70 cursor-not-allowed' : ''}
             >
               {loading ? 'Signing in...' : 'Sign In'}
-            </button>
+            </Button>
+          </form>
+          
+          <div className="text-center mt-6 flex flex-col space-y-2">
+            <Link to="/forgot-password" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+              Forgot your password?
+            </Link>
+            <Link to="/register" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors">
+              Don't have an account? Register
+            </Link>
           </div>
-        </form>
-        <div className="text-center mt-4">
-          <Link to="/register" className="font-medium text-sm text-indigo-600 hover:text-indigo-500 transition-colors">
-            Don't have an account? Register
-          </Link>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

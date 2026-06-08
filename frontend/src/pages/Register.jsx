@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import { useToast } from '../context/ToastContext';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { name, email, password } = formData;
@@ -24,11 +28,10 @@ const Register = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError('');
 
     // Basic frontend form validation
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      showToast('Password must be at least 6 characters long', 'error');
       return;
     }
 
@@ -36,6 +39,7 @@ const Register = () => {
     try {
       await authService.register(formData);
       setLoading(false);
+      showToast('Registration successful! Please check your email to verify your account.', 'success');
       // Redirect to login page upon successful registration
       navigate('/login');
     } catch (err) {
@@ -43,89 +47,75 @@ const Register = () => {
       // Extract error message from API response or use default fallback
       const message =
         err.response?.data?.message || err.message || 'Registration failed';
-      setError(message);
+      showToast(message, 'error');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-        <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
-            Create an account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 dark:bg-slate-900 transition-colors duration-300">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center pb-2">
+          <CardTitle className="text-2xl font-bold dark:text-white">Create an account</CardTitle>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             Start managing your tasks efficiently today.
           </p>
-        </div>
+        </CardHeader>
         
-        {/* Error Message Display */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-md">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={onSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">Full Name</label>
-              <input
+        <CardContent>
+          <form className="space-y-5" onSubmit={onSubmit}>
+            <div className="space-y-4">
+              <Input
+                label="Full Name"
                 id="name"
                 name="name"
                 type="text"
                 required
                 value={name}
                 onChange={onChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="John Doe"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email Address</label>
-              <input
+              <Input
+                label="Email Address"
                 id="email"
                 name="email"
                 type="email"
                 required
                 value={email}
                 onChange={onChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="you@example.com"
               />
+              <div>
+                <Input
+                  label="Password"
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={onChange}
+                  placeholder="••••••••"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Minimum 6 characters</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={onChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors"
-                placeholder="••••••••"
-              />
-              <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
-            </div>
-          </div>
 
-          <div>
-            <button
+            <Button
               type="submit"
+              fullWidth
               disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={loading ? 'opacity-70 cursor-not-allowed' : ''}
             >
               {loading ? 'Registering...' : 'Create Account'}
-            </button>
+            </Button>
+          </form>
+          
+          <div className="text-center mt-6">
+            <Link to="/login" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors">
+              Already have an account? Log in
+            </Link>
           </div>
-        </form>
-        <div className="text-center mt-4">
-          <Link to="/login" className="font-medium text-sm text-indigo-600 hover:text-indigo-500 transition-colors">
-            Already have an account? Log in
-          </Link>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

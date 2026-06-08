@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import taskService from '../services/taskService';
 import { useToast } from '../context/ToastContext';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/Card';
+import Input from './ui/Input';
+import Button from './ui/Button';
 
 const AddTask = ({ onTaskAdded }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('Medium');
+  const [category, setCategory] = useState('Personal');
+  const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -18,16 +24,16 @@ const AddTask = ({ onTaskAdded }) => {
     try {
       setLoading(true);
       
-      // API Integration
-      const newTask = await taskService.createTask({ title, description });
+      const newTask = await taskService.createTask({ title, description, priority, category, dueDate });
       
-      // Reset form
       setTitle('');
       setDescription('');
+      setPriority('Medium');
+      setCategory('Personal');
+      setDueDate('');
       
       showToast('Task created successfully!', 'success');
       
-      // Refresh task list in parent
       if (onTaskAdded) {
         onTaskAdded(newTask);
       }
@@ -39,44 +45,81 @@ const AddTask = ({ onTaskAdded }) => {
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl shadow-xl rounded-2xl p-6 border border-gray-100/50 sticky top-8 transition-all hover:shadow-2xl">
-      <h2 className="text-xl font-extrabold text-gray-900 mb-6 pb-3 border-b border-gray-100/80 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">Add New Task</h2>
+    <Card className="sticky top-8">
+      <CardHeader>
+        <CardTitle>Add New Task</CardTitle>
+      </CardHeader>
 
-      <form onSubmit={onSubmit} className="space-y-5">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5" htmlFor="title">Task Title <span className="text-red-500">*</span></label>
-          <input
-            type="text"
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Input
+            label="Task Title"
             id="title"
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-white text-sm transition-all duration-300 placeholder:text-gray-400"
             placeholder="E.g., Complete project report"
             disabled={loading}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5" htmlFor="description">Description (Optional)</label>
-          <textarea
+          
+          <Input
+            as="textarea"
+            label="Description (Optional)"
             id="description"
             rows="3"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-white text-sm resize-none transition-all duration-300 placeholder:text-gray-400"
             placeholder="Add more details here..."
             disabled={loading}
-          ></textarea>
-        </div>
-        <button
-          type="submit"
-          disabled={!title.trim() || loading}
-          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-indigo-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md hover:shadow-lg"
-        >
-          {loading ? 'Adding Task...' : 'Create Task'}
-        </button>
-      </form>
-    </div>
+          />
+          
+          <Input
+            as="select"
+            label="Priority"
+            id="priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            disabled={loading}
+          >
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </Input>
+
+          <Input
+            as="select"
+            label="Category"
+            id="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={loading}
+          >
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Study">Study</option>
+            <option value="Health">Health</option>
+          </Input>
+          
+          <Input
+            label="Due Date (Optional)"
+            type="date"
+            id="dueDate"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            disabled={loading}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            disabled={!title.trim() || loading}
+            className={`mt-2 ${(!title.trim() || loading) ? 'opacity-70 cursor-not-allowed' : ''}`}
+          >
+            {loading ? 'Adding Task...' : 'Create Task'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -7,8 +7,19 @@ import TaskCard from '../components/TaskCard';
 import EditTaskModal from '../components/EditTaskModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import TaskSkeleton from '../components/TaskSkeleton';
+import EmptyState from '../components/EmptyState';
+import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
-import { FaCheckCircle, FaSearch, FaClipboardList } from 'react-icons/fa';
+import { FaCheckCircle, FaSearch, FaClipboardList, FaSignOutAlt, FaUser } from 'react-icons/fa';
+import { Card, CardContent } from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import ThemeToggle from '../components/ui/ThemeToggle';
+import FilterBar from '../components/FilterBar';
+import AnalyticsCards from '../components/AnalyticsCards';
+import TaskCompletionChart from '../components/TaskCompletionChart';
+import ActivityTimeline from '../components/ActivityTimeline';
 
 const Dashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -18,10 +29,20 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [sortOption, setSortOption] = useState('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [refreshAnalyticsTrigger, setRefreshAnalyticsTrigger] = useState(0);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
 
   // Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -29,17 +50,69 @@ const Dashboard = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
 
-  // Form state moved to AddTask component
+  // We'll manage triggering fetchTasks within a single useEffect
+  // that depends on all relevant state variables.
 
-  // Initial Fetch & Page Change
+
+  useEffect(() => {
+    const getAnalytics = async () => {
+      try {
+        const data = await taskService.getAnalytics();
+        setAnalyticsData(data);
+        setAnalyticsLoading(false);
+      } catch (err) {
+        console.error('Failed to fetch analytics', err);
+        setAnalyticsLoading(false);
+      }
+    };
+    getAnalytics();
+  }, [refreshAnalyticsTrigger]);
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const data = await taskService.getActivities();
+        setActivities(data);
+        setActivitiesLoading(false);
+      } catch (err) {
+        console.error('Failed to fetch activities', err);
+        setActivitiesLoading(false);
+      }
+    };
+    fetchActivities();
+  }, [refreshAnalyticsTrigger]);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchInput]);
+
+  // When any filter changes, reset to page 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterCategory, filterPriority, searchQuery, sortOption]);
+
+  // Fetch tasks whenever page, filters, or refresh trigger changes
   useEffect(() => {
     fetchTasks();
-  }, [currentPage]);
+  }, [currentPage, filterStatus, filterCategory, filterPriority, searchQuery, sortOption, refreshAnalyticsTrigger]);
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await taskService.getTasks(currentPage, 5);
+      const data = await taskService.getTasks(currentPage, 10, {
+        status: filterStatus,
+        category: filterCategory,
+        priority: filterPriority,
+        search: searchQuery,
+        sort: sortOption
+      });
       setTasks(data.tasks);
       setTotalPages(data.totalPages);
       setLoading(false);
@@ -55,9 +128,9 @@ const Dashboard = () => {
   };
 
   const handleTaskAdded = () => {
-    if (currentPage === 1) {
-      fetchTasks();
-    } else {
+    setRefreshAnalyticsTrigger((prev) => prev + 1);
+    // If not on page 1, resetting it to 1 will trigger a fetch
+    if (currentPage !== 1) {
       setCurrentPage(1);
     }
   };
@@ -66,6 +139,7 @@ const Dashboard = () => {
     try {
       const updatedTask = await taskService.toggleTaskStatus(id);
       setTasks(tasks.map((task) => (task._id === id ? updatedTask : task)));
+      setRefreshAnalyticsTrigger((prev) => prev + 1);
       showToast('Task status updated', 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update task status', 'error');
@@ -87,6 +161,7 @@ const Dashboard = () => {
       setTasks(tasks.filter((task) => task._id !== taskToDelete._id));
       setIsDeleteModalOpen(false);
       setTaskToDelete(null);
+      setRefreshAnalyticsTrigger((prev) => prev + 1);
       showToast('Task deleted successfully', 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete task', 'error');
@@ -101,120 +176,124 @@ const Dashboard = () => {
 
   const handleTaskUpdated = (updatedTask) => {
     setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)));
+    setRefreshAnalyticsTrigger((prev) => prev + 1);
   };
 
-  // Filter tasks based on search query and status
-  const filteredTasks = tasks.filter((task) => {
-    // 1. Check status filter
-    if (filterStatus !== 'all' && task.status !== filterStatus) {
-      return false;
-    }
+  // Note: Filtering and Sorting is now fully handled on the server
 
-    // 2. Check search query
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      task.title.toLowerCase().includes(query) ||
-      (task.description && task.description.toLowerCase().includes(query))
-    );
-  });
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      {/* 1. Navbar */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded flex justify-center items-center">
-              <FaCheckCircle className="text-white" size={16} />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans transition-colors duration-300">
+      {/* Navbar */}
+      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-40 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex justify-center items-center shadow-sm">
+              <FaCheckCircle className="text-white" size={18} />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Task<span className="text-indigo-600">Manager</span></h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Task<span className="text-indigo-600 dark:text-indigo-400">Manager</span>
+            </h1>
           </div>
           
-          <div className="flex items-center space-x-6">
-            <span className="text-gray-600 text-sm hidden sm:block">
-              Welcome back, <span className="font-semibold text-gray-900">{user?.name}</span>
+          <div className="flex items-center space-x-4 sm:space-x-6">
+            <span className="text-gray-600 dark:text-gray-300 text-sm hidden sm:block">
+              Welcome back, <span className="font-semibold text-gray-900 dark:text-white">{user?.name}</span>
             </span>
-            {/* 4. Logout Button */}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/profile')}
+              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:text-indigo-400"
+              icon={FaUser}
+            >
+              Profile
+            </Button>
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onLogout}
-              className="text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 py-1.5 px-3 rounded-md transition-colors"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 dark:text-red-500"
+              icon={FaSignOutAlt}
             >
               Logout
-            </button>
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* Top Section: Analytics & Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+          <div className="lg:col-span-8">
+            <AnalyticsCards data={analyticsData} loading={analyticsLoading} />
+          </div>
+          <div className="lg:col-span-4">
+            <TaskCompletionChart data={analyticsData} loading={analyticsLoading} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* 2. Add Task Form (Left Column) */}
-          <div className="lg:col-span-1">
+          {/* Add Task Form & Activity Timeline (Left Column) */}
+          <div className="lg:col-span-4 xl:col-span-3 space-y-8">
             <AddTask onTaskAdded={handleTaskAdded} />
+            <ActivityTimeline activities={activities} loading={activitiesLoading} />
           </div>
 
-          {/* 3. Task List (Right Column) */}
-          <div className="lg:col-span-2">
-            <div className="bg-white shadow-sm rounded-xl p-6 border border-gray-100 min-h-[400px]">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-gray-100 pb-4 gap-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-gray-900">Your Tasks</h2>
-                  <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap">
-                    {filteredTasks.length} {filteredTasks.length !== tasks.length ? `of ${tasks.length}` : 'total'}
-                  </span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-3">
-                  {/* Status Filter */}
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="block w-full sm:w-36 pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors cursor-pointer text-gray-700"
-                  >
-                    <option value="all">All Tasks</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                  </select>
-
-                  {/* Search Input */}
-                  <div className="relative w-full sm:w-64">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FaSearch className="text-gray-400" size={14} />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search tasks..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+          {/* Task List (Right Column) */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            <Card className="min-h-[500px] flex flex-col">
+              <CardContent className="flex-1 p-6">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-700 gap-4">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Your Tasks</h2>
+                    <Badge variant="primary">
+                      {tasks.length} {totalPages > 1 ? `on this page` : 'total'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-3">
+                    <FilterBar
+                      searchInput={searchInput}
+                      setSearchInput={setSearchInput}
+                      filterStatus={filterStatus}
+                      setFilterStatus={setFilterStatus}
+                      filterCategory={filterCategory}
+                      setFilterCategory={setFilterCategory}
+                      filterPriority={filterPriority}
+                      setFilterPriority={setFilterPriority}
+                      sortOption={sortOption}
+                      setSortOption={setSortOption}
                     />
                   </div>
                 </div>
-              </div>
 
-              {loading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => <TaskSkeleton key={i} />)}
-                </div>
-              ) : filteredTasks.length === 0 ? (
-                <div className="text-center py-20 flex flex-col items-center">
-                  <div className="bg-indigo-50/50 p-6 rounded-full mb-5 border border-indigo-100 shadow-inner">
-                    <FaClipboardList className="text-indigo-400" size={56} />
-                  </div>
-                  <h3 className="text-gray-900 text-xl font-bold tracking-tight">
-                    {tasks.length === 0 ? 'You are all caught up!' : 'No matching tasks'}
-                  </h3>
-                  <p className="text-gray-500 text-base mt-2 max-w-sm">
-                    {tasks.length === 0 
-                      ? 'You currently have no tasks. Use the form to create your first task and get started.'
-                      : 'No tasks match your current search or filter criteria.'}
-                  </p>
-                </div>
-              ) : (
-                <>
+                {loading ? (
                   <div className="space-y-4">
-                    {filteredTasks.map((task) => (
+                    {[...Array(3)].map((_, i) => <TaskSkeleton key={i} />)}
+                  </div>
+                ) : tasks.length === 0 ? (
+                  <EmptyState 
+                    type={
+                      (filterStatus === 'all' && filterCategory === 'all' && filterPriority === 'all' && !searchQuery)
+                        ? 'no-tasks' 
+                        : (filterStatus === 'Completed' && !searchQuery && filterCategory === 'all' && filterPriority === 'all') 
+                          ? 'no-completed' 
+                          : 'no-search-results'
+                    }
+                    clearFilters={() => {
+                      setFilterStatus('all');
+                      setFilterCategory('all');
+                      setFilterPriority('all');
+                      setSearchInput('');
+                      setSearchQuery('');
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {tasks.map((task) => (
                       <TaskCard 
                         key={task._id} 
                         task={task} 
@@ -224,37 +303,22 @@ const Dashboard = () => {
                       />
                     ))}
                   </div>
+                )}
 
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1 || loading}
-                        className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page <span className="font-semibold text-gray-900">{currentPage}</span> of <span className="font-semibold text-gray-900">{totalPages}</span>
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages || loading}
-                        className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                {/* Pagination Controls */}
+                {!loading && (
+                  <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(page) => setCurrentPage(page)}
+                  />
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
 
-      {/* Edit Task Modal */}
       <EditTaskModal 
         isOpen={isEditModalOpen} 
         onClose={() => setIsEditModalOpen(false)} 
@@ -262,7 +326,6 @@ const Dashboard = () => {
         onTaskUpdated={handleTaskUpdated} 
       />
 
-      {/* Delete Confirmation Modal */}
       <DeleteConfirmModal 
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

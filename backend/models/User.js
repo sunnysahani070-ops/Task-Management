@@ -21,6 +21,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please add a password'],
     },
+    profileImage: {
+      type: String,
+      default: '',
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

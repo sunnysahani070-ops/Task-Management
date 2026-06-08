@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
 @layer utilities {
   .animate-slide-up {
     animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -19,6 +25,6 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-slate-50 text-slate-900 font-sans antialiased transition-colors duration-300 dark:bg-slate-900 dark:text-slate-50;
   }
 }

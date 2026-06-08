@@ -20,6 +20,20 @@ const taskSchema = new mongoose.Schema(
       enum: ['pending', 'completed'],
       default: 'pending',
     },
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      default: 'Medium',
+    },
+    category: {
+      type: String,
+      enum: ['Work', 'Personal', 'Study', 'Health'],
+      default: 'Personal',
+    },
+    dueDate: {
+      type: Date,
+      required: false,
+    },
   },
   {
     timestamps: true,
